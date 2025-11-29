@@ -72,7 +72,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, onOpenSelfieCa
               mimeType: audioBlob.type || 'audio/wav',
               data: base64,
               type: 'audio',
-              previewUrl: null // No visual preview for audio needed in input bar strictly, or add icon
+              previewUrl: undefined // Corrected: use undefined instead of null to match type definition
             }]);
             
             // Auto send? Or let user confirm? Let's let user confirm/add text.
