@@ -22,6 +22,7 @@ const SYSTEM_INSTRUCTION = `
 如果用户发送了具体题目的图片，请有条理地进行解答，并清晰地解释每一步。确保所有数学符号（如 $\pi, \theta, \approx, \le$ 等）都能正确显示。
 `;
 
+// Initialize the GoogleGenAI client with the API key from the environment
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const sendMessageToGemini = async (

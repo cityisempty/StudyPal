@@ -92,7 +92,7 @@ const App: React.FC = () => {
           <h1 className="font-bold text-lg text-gray-800 tracking-tight">AI 学习助手</h1>
         </div>
         <div className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
-            Gemini 2.5
+            演示版
         </div>
       </header>
 

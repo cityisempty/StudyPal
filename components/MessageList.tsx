@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, ReactNode } from 'react';
 import { Message, Role } from '../types';
 import { Bot, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -8,6 +8,39 @@ import rehypeKatex from 'rehype-katex';
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+}
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback: string;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// Error Boundary Component to catch Markdown rendering errors
+class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Markdown rendering error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback to displaying raw text if markdown fails
+      return <div className="whitespace-pre-wrap font-sans">{this.props.fallback}</div>;
+    }
+    return this.props.children;
+  }
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
@@ -72,16 +105,18 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
                     : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
                 }`}>
                     <div className="markdown-body">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkMath]} 
-                        rehypePlugins={[rehypeKatex]}
-                        components={{
-                            // Override link opening in new tab
-                            a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />
-                        }}
-                      >
-                        {msg.text}
-                      </ReactMarkdown>
+                      <MarkdownErrorBoundary fallback={msg.text}>
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkMath]} 
+                          rehypePlugins={[rehypeKatex]}
+                          components={{
+                              // Override link opening in new tab
+                              a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
+                      </MarkdownErrorBoundary>
                     </div>
                 </div>
             )}
