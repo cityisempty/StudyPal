@@ -19,7 +19,7 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Error Boundary Component to catch Markdown rendering errors
+// Robust Error Boundary to catch any Markdown/Katex crashes
 class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -31,13 +31,17 @@ class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBou
   }
 
   componentDidCatch(error: any, errorInfo: any) {
-    console.error("Markdown rendering error:", error, errorInfo);
+    console.error("Markdown/Math rendering error:", error);
   }
 
   render() {
     if (this.state.hasError) {
-      // Fallback to displaying raw text if markdown fails
-      return <div className="whitespace-pre-wrap font-sans">{this.props.fallback}</div>;
+      // Fallback: Display raw text cleanly
+      return (
+        <div className="text-sm text-gray-800 whitespace-pre-wrap font-mono bg-red-50 p-2 rounded border border-red-100">
+           {this.props.fallback}
+        </div>
+      );
     }
     return this.props.children;
   }
@@ -46,6 +50,7 @@ class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBou
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom whenever messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -105,12 +110,16 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
                     : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
                 }`}>
                     <div className="markdown-body">
+                      {/* 
+                         Use key={msg.text} to force re-render if text changes (streaming), 
+                         but React handles text node updates efficiently usually. 
+                         The ErrorBoundary needs to be stable though.
+                      */}
                       <MarkdownErrorBoundary fallback={msg.text}>
                         <ReactMarkdown 
                           remarkPlugins={[remarkMath]} 
                           rehypePlugins={[rehypeKatex]}
                           components={{
-                              // Override link opening in new tab
                               a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />
                           }}
                         >
@@ -127,8 +136,10 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
           </div>
         </div>
       ))}
-
-      {isLoading && (
+      
+      {/* Streaming Indicator / Loading State */}
+      {/* Only show "thinking" bubbles if we are loading AND the last message is NOT from the model (meaning we haven't started streaming yet) */}
+      {isLoading && messages.length > 0 && messages[messages.length - 1].role === Role.USER && (
         <div className="flex w-full gap-3">
            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
              <Bot size={16} />

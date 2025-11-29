@@ -3,8 +3,8 @@ import { Message, Role, Attachment } from './types';
 import MessageList from './components/MessageList';
 import InputArea from './components/InputArea';
 import CameraModal from './components/CameraModal';
-import { sendMessageToGemini } from './services/geminiService';
-import { GraduationCap } from 'lucide-react';
+import { streamMessageFromGemini } from './services/geminiService';
+import { GraduationCap, Trash2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -22,60 +22,62 @@ const App: React.FC = () => {
       timestamp: Date.now()
     };
 
+    // Use functional update to ensure we have the latest state if things happen fast
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    try {
-      // 2. Call Gemini API
-      // We pass the full message history (excluding the one we just added to state, 
-      // but logic inside service handles reconstruction or we pass updated list)
-      // Actually, let's pass the *previous* messages + the new content separately to the service wrapper 
-      // so it can format the final "turn".
-      
-      const responseText = await sendMessageToGemini(messages, text, attachments);
+    // 2. Prepare Placeholder for Bot Response
+    const botMessageId = (Date.now() + 1).toString();
+    const initialBotMessage: Message = {
+      id: botMessageId,
+      role: Role.MODEL,
+      text: '',
+      timestamp: Date.now()
+    };
+    
+    setMessages(prev => [...prev, initialBotMessage]);
 
-      // 3. Add Model Response to State
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: Role.MODEL,
-        text: responseText,
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, botMessage]);
+    try {
+      // 3. Call Gemini API Stream
+      // Note: We pass the *current* messages (excluding the empty bot placeholder we just added)
+      // to the service. The service handles the construction.
+      // We need to pass the list *before* the new user message was effectively committed if we were strictly react pure,
+      // but here we just pass `messages` (which is previous history) and append the new input args in the service call.
+      
+      const stream = streamMessageFromGemini(messages, text, attachments);
+      
+      let fullText = '';
+      
+      for await (const chunk of stream) {
+        fullText += chunk;
+        setMessages(prev => prev.map(msg => 
+          msg.id === botMessageId 
+            ? { ...msg, text: fullText } 
+            : msg
+        ));
+      }
 
     } catch (error) {
       console.error(error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: Role.MODEL,
-        text: "连接出现问题，请重试。",
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => prev.map(msg => 
+        msg.id === botMessageId 
+          ? { ...msg, text: msg.text + "\n\n(连接中断，请重试)" } 
+          : msg
+      ));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleNewChat = () => {
+    if (messages.length > 0) {
+      if (confirm("确定要清空当前对话开始新的话题吗？")) {
+        setMessages([]);
+      }
+    }
+  };
+
   const handleCameraCapture = (base64: string, mimeType: string) => {
-    // When camera captures, we want to basically inject this into the input area.
-    // However, the InputArea state is local. 
-    // We can solve this by passing an "externalAttachment" prop to InputArea, 
-    // or more simply, just triggering a "send" immediately or asking the user to confirm.
-    
-    // Let's create a temporary fake attachment to "auto-fill" the input area, 
-    // but since InputArea is uncontrolled for outside props in this simple design,
-    // we will modify InputArea to accept an initial attachment, or we can just send it immediately?
-    
-    // Better UX: Send the image immediately with an empty text prompt implied "Solve this" or "Explain this"? 
-    // Or let user type? Let's let user type.
-    // To do that, we need to lift InputArea state up or expose a method.
-    // For simplicity in this structure: We will close camera and pass the data down to InputArea via a key or context?
-    // Actually, let's just use a callback prop on InputArea that we can trigger, 
-    // but React functional components don't work that way easily without refs.
-    
-    // Alternative: We store "cameraResult" in App state, pass it to InputArea. 
-    // InputArea useEffect detects it, adds to its local state, then clears App state.
     setPendingCameraCapture({ data: base64, mime: mimeType });
     setShowCamera(false);
   };
@@ -91,8 +93,14 @@ const App: React.FC = () => {
           </div>
           <h1 className="font-bold text-lg text-gray-800 tracking-tight">AI 学习助手</h1>
         </div>
-        <div className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
-            演示版
+        <div className="flex items-center gap-2">
+           <button 
+            onClick={handleNewChat}
+            className="p-2 text-gray-500 hover:bg-gray-100 hover:text-red-500 rounded-full transition-colors"
+            title="新对话"
+          >
+            <Trash2 size={20} />
+          </button>
         </div>
       </header>
 
@@ -108,10 +116,6 @@ const App: React.FC = () => {
           isLoading={isLoading} 
           onOpenSelfieCamera={() => setShowCamera(true)}
         />
-        {/* We use a key trick to force re-render InputArea if we wanted to reset, 
-            but here we need to inject the pending capture. 
-            Ideally, we'd refactor InputArea to control state from here, but let's use a Wrapper or useEffect inside InputArea.
-        */}
         <PendingCaptureHandler 
             pendingCapture={pendingCameraCapture} 
             onConsumed={(text, atts) => {
@@ -132,8 +136,6 @@ const App: React.FC = () => {
   );
 };
 
-// Helper component to handle the logic of "User took a photo, now send it"
-// This simplifies the flow without complex state lifting for the InputArea text
 const PendingCaptureHandler: React.FC<{
     pendingCapture: {data: string, mime: string} | null,
     onConsumed: (text: string, attachments: Attachment[]) => void
@@ -146,8 +148,6 @@ const PendingCaptureHandler: React.FC<{
                 type: 'image',
                 previewUrl: `data:${pendingCapture.mime};base64,${pendingCapture.data}`
             };
-            // Automatically send the image with a default prompt or empty
-            // UX Decision: Let's prompt "Help me with this".
             onConsumed("请帮我讲解一下这个。", [newAtt]);
         }
     }, [pendingCapture, onConsumed]);
