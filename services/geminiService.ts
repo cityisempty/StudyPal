@@ -113,7 +113,7 @@ export async function* streamMessageFromGemini(
 
     // 3. Call the API with Streaming
     const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-flash',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
