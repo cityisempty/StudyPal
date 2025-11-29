@@ -111,14 +111,13 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
                 }`}>
                     <div className="markdown-body">
                       {/* 
-                         Use key={msg.text} to force re-render if text changes (streaming), 
-                         but React handles text node updates efficiently usually. 
-                         The ErrorBoundary needs to be stable though.
+                         CRITICAL FIX: Configure rehypeKatex to NOT throw errors.
+                         This prevents white screen crashes when streaming incomplete LaTeX.
                       */}
                       <MarkdownErrorBoundary fallback={msg.text}>
                         <ReactMarkdown 
                           remarkPlugins={[remarkMath]} 
-                          rehypePlugins={[rehypeKatex]}
+                          rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
                           components={{
                               a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />
                           }}
