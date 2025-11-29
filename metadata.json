@@ -1,0 +1,8 @@
+{
+  "name": "AI 学习助手",
+  "description": "你的个人 AI 导师，通过文字、语音和图片帮助你解答问题并学习知识。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
