@@ -1,19 +1,21 @@
 # Cloudflare Workers 配置文件（仅当选择 Workers 部署时需要）
 # 使用此文件前需要安装 Wrangler CLI: npm install -D wrangler
+# NOTE: Cloudflare Pages 部署不需要此文件，仅 Workers 部署需要
 
 name = "studypal"
 type = "javascript"
 account_id = "your-account-id"  # 替换为你的 Cloudflare Account ID
 workers_dev = true
 route = ""
+pages_build_output_dir = ".next"
 
-# 环境变量配置（敏感信息不要提交到 git，改用 Cloudflare Dashboard 或 wrangler secret）
-env:
-  production:
-    name = "studypal-prod"
-    route = "example.com/*"  # 你的自定义域名（可选）
-    vars = { ENVIRONMENT = "production" }
+# 生产环境配置
+[env.production]
+name = "studypal-prod"
+route = "example.com/*"  # 你的自定义域名（可选）
+vars = { ENVIRONMENT = "production" }
 
+# Staging 环境配置
 [env.staging]
 name = "studypal-staging"
 vars = { ENVIRONMENT = "staging" }

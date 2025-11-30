@@ -7,23 +7,14 @@ const nextConfig = {
     esmExternals: true,
   },
 
-  // 禁用某些在 Cloudflare 环境中不稳定的特性
-  // webpack 配置可选：避免某些 Node.js 专用模块被 bundled
-  webpack: (config, { isServer }) => {
-    // 标记某些模块为 external（不打包进 bundle）
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        os: false,
-      };
-    }
-    return config;
+  // Next.js 16+ 使用 Turbopack 作为默认编译器
+  // webpack 配置已不再受支持，需要迁移到 turbopack 配置
+  turbopack: {
+    // Turbopack 配置（如需自定义）
+    // 目前保持默认，大多数应用无需修改
   },
 
   // 生产环境性能优化
-  swcMinify: true,
   compress: true,
 
   // 图片优化（Cloudflare 环境下保险做法）
