@@ -31,7 +31,7 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showCamera, setShowCamera] = useState(false);
     const [pendingCameraCapture, setPendingCameraCapture] = useState<{ data: string, mime: string } | null>(null);
-    const [currentProvider, setCurrentProvider] = useState<'openai' | 'google'>('openai');
+    const [currentProvider, setCurrentProvider] = useState<'openai' | 'google'>('google');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {

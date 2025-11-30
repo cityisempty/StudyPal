@@ -137,11 +137,42 @@ async function handleGeminiRequest(history: any[], newText: string, newAttachmen
         });
 
         const text = response.text || "";
-        return NextResponse.json({ text });
+        const cleaned = sanitizeModelText(text);
+        return NextResponse.json({ text: cleaned });
     } catch (error: any) {
         console.error("Gemini API Error:", error);
         throw error;
     }
+}
+
+// Simple sanitization to reduce duplicated leading segments or accidental repeats
+function sanitizeModelText(raw: string) {
+    if (!raw) return raw;
+    let text = String(raw);
+
+    // Trim whitespace
+    text = text.trim();
+
+    // If the entire text appears to be two identical halves, keep only one half.
+    try {
+        const len = text.length;
+        if (len % 2 === 0) {
+            const half = len / 2;
+            const a = text.slice(0, half);
+            const b = text.slice(half);
+            if (a === b) {
+                return a.trim();
+            }
+        }
+    } catch (_) {}
+
+    // Collapse immediate repeated punctuation sequences like "$$...$$$$..." or repeated symbols
+    text = text.replace(/([\u00A0-\u2BFF\w\p{P}\p{S}]{2,})\1+/u, (m, g1) => g1);
+
+    // Remove accidental exact adjacent token duplicates (word-level) e.g. "AB AB" -> "AB"
+    text = text.replace(/\b(\w+)(?:[\s,;:\-–—]*)\1\b/g, '$1');
+
+    return text.trim();
 }
 
 async function handleOpenAIRequest(history: any[], newText: string, newAttachments: any[]) {

@@ -4,7 +4,7 @@ export async function* streamMessage(
     history: Message[],
     newText: string,
     newAttachments: Attachment[],
-    provider: 'openai' | 'google' = 'openai'
+    provider: 'openai' | 'google' = 'google'
 ): AsyncGenerator<string, void, unknown> {
     try {
         const response = await fetch('/api/chat', {
