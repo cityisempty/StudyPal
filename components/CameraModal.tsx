@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Camera, SwitchCamera } from 'lucide-react';
+import { X, Camera, RefreshCw } from 'lucide-react';
 
 interface CameraModalProps {
-  onCapture: (base64: string, mimeType: string) => void;
+  onCapture: (dataUrl: string) => void;
   onClose: () => void;
 }
 
@@ -26,7 +26,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
-      alert("无法访问相机，请检查权限设置。");
+      alert("无法访问摄像头，请检查权限设置。");
       onClose();
     }
   };
@@ -38,68 +38,72 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
-  const handleCapture = () => {
+  const capture = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
       const context = canvas.getContext('2d');
+
       if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Get Base64
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        const base64 = dataUrl.split(',')[1];
-        onCapture(base64, 'image/jpeg');
+        onCapture(dataUrl);
+        onClose();
       }
     }
   };
 
-  const toggleCamera = () => {
+  const switchCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between">
-      {/* Header */}
-      <div className="p-4 flex justify-end">
-        <button onClick={onClose} className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700">
-          <X size={24} />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-lg bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10 m-4">
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
+          <span className="text-white font-medium drop-shadow-md">Take Photo</span>
+          <button
+            onClick={onClose}
+            className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-all"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-      {/* Viewport */}
-      <div className="flex-grow relative flex items-center justify-center overflow-hidden bg-black">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <canvas ref={canvasRef} className="hidden" />
-      </div>
+        {/* Camera View */}
+        <div className="relative aspect-[3/4] bg-black">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
 
-      {/* Controls */}
-      <div className="p-8 pb-12 bg-black bg-opacity-80 flex justify-between items-center">
-        <div className="w-12"></div> {/* Spacer */}
-        
-        <button 
-          onClick={handleCapture}
-          className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center relative hover:bg-gray-800 transition-colors"
-        >
-          <div className="w-16 h-16 bg-white rounded-full"></div>
-        </button>
+        {/* Controls */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          <button
+            onClick={switchCamera}
+            className="p-3 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-all"
+          >
+            <RefreshCw size={24} />
+          </button>
 
-        <button onClick={toggleCamera} className="text-white p-3 rounded-full hover:bg-gray-800">
-           <SwitchCamera size={28} />
-        </button>
+          <button
+            onClick={capture}
+            className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center relative group"
+          >
+            <div className="w-14 h-14 bg-white rounded-full transition-transform group-hover:scale-90" />
+          </button>
+
+          <div className="w-12" /> {/* Spacer for balance */}
+        </div>
       </div>
     </div>
   );

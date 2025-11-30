@@ -1,0 +1,42 @@
+# Cloudflare Workers 配置文件（仅当选择 Workers 部署时需要）
+# 使用此文件前需要安装 Wrangler CLI: npm install -D wrangler
+
+name = "studypal"
+type = "javascript"
+account_id = "your-account-id"  # 替换为你的 Cloudflare Account ID
+workers_dev = true
+route = ""
+
+# 环境变量配置（敏感信息不要提交到 git，改用 Cloudflare Dashboard 或 wrangler secret）
+env:
+  production:
+    name = "studypal-prod"
+    route = "example.com/*"  # 你的自定义域名（可选）
+    vars = { ENVIRONMENT = "production" }
+
+[env.staging]
+name = "studypal-staging"
+vars = { ENVIRONMENT = "staging" }
+
+# 构建输出配置
+[build]
+cwd = "."
+command = "npm run build"
+watch_paths = ["src/**/*.rs"]
+
+# 开发服务器配置（可选）
+[dev]
+port = 3000
+local_protocol = "http"
+
+# Cloudflare KV 存储（可选：若要存储会话等）
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-id"
+
+# D1 数据库（可选：若需要数据库）
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "studypal_db"
+# database_id = "your-database-id"

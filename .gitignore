@@ -1,3 +1,9 @@
+# 环境变量文件（包含 API key，务必不提交）
+.env.local
+.env.*.local
+.env
+.env.production.local
+
 # Logs
 logs
 *.log
@@ -5,12 +11,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+pnpm-error.log*
 lerna-debug.log*
 
+# Node.js 和依赖
 node_modules
+package-lock.json  # 可选：某些场景下提交此文件以保证一致性
+
+# Build outputs
 dist
 dist-ssr
+.next/
+out/
+build/
+
+# 其他本地文件
 *.local
+.wrangler/
+wrangler.env.*
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +40,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# IDE
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output/
+
+# Deployment artifacts
+.vercel
+.netlify

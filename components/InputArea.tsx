@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Image as ImageIcon, Camera, Mic, X, Loader2, StopCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Send, Image as ImageIcon, Camera, X } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface InputAreaProps {
@@ -11,93 +11,18 @@ interface InputAreaProps {
 const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, onOpenSelfieCamera }) => {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
-    if ((!text.trim() && attachments.length === 0) || isLoading) return;
-    onSend(text, attachments);
-    setText('');
-    setAttachments([]);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dataUrl = event.target.result as string;
-          const base64 = dataUrl.split(',')[1];
-          const type = file.type.startsWith('image') ? 'image' : 'audio'; // Basic check
-          
-          setAttachments(prev => [...prev, {
-            mimeType: file.type,
-            data: base64,
-            type: type as 'image' | 'audio',
-            previewUrl: dataUrl
-          }]);
-        }
-      };
-      reader.readAsDataURL(file);
+    if ((text.trim() || attachments.length > 0) && !isLoading) {
+      onSend(text, attachments);
+      setText('');
+      setAttachments([]);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' }); // or webm
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const dataUrl = reader.result as string;
-            const base64 = dataUrl.split(',')[1];
-             // Standardize mime type for Gemini if possible, or use the one from blob
-            setAttachments(prev => [...prev, {
-              mimeType: audioBlob.type || 'audio/wav',
-              data: base64,
-              type: 'audio',
-              previewUrl: undefined // Corrected: use undefined instead of null to match type definition
-            }]);
-            
-            // Auto send? Or let user confirm? Let's let user confirm/add text.
-        };
-        reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Mic error:", err);
-      alert("无法访问麦克风。");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -105,25 +30,59 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, onOpenSelfieCa
       e.preventDefault();
       handleSend();
     }
-  }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Remove data URL prefix to get raw base64
+        const base64Data = base64String.split(',')[1];
+
+        const newAttachment: Attachment = {
+          type: 'image',
+          mimeType: file.type,
+          data: base64Data,
+          previewUrl: base64String
+        };
+        setAttachments([...attachments, newAttachment]);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const target = e.target;
+    target.style.height = 'auto';
+    target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+    setText(target.value);
+  };
 
   return (
-    <div className="bg-white border-t border-gray-200 p-3 pb-safe-area">
+    <div className="w-full max-w-4xl mx-auto relative">
       {/* Attachments Preview */}
       {attachments.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-          {attachments.map((att, idx) => (
-            <div key={idx} className="relative flex-shrink-0">
-              {att.type === 'image' ? (
-                <img src={att.previewUrl} alt="preview" className="h-16 w-16 object-cover rounded-lg border border-gray-200" />
-              ) : (
-                <div className="h-16 w-16 bg-blue-100 text-blue-600 flex items-center justify-center rounded-lg border border-blue-200">
-                  <Mic size={20} />
-                </div>
-              )}
-              <button 
-                onClick={() => removeAttachment(idx)}
-                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-md"
+        <div className="flex gap-3 mb-3 overflow-x-auto py-2 px-1">
+          {attachments.map((att, index) => (
+            <div key={index} className="relative group animate-fade-in">
+              <img
+                src={att.previewUrl}
+                alt="preview"
+                className="h-20 w-20 object-cover rounded-xl border-2 border-white shadow-md"
+              />
+              <button
+                onClick={() => removeAttachment(index)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
               >
                 <X size={12} />
               </button>
@@ -132,69 +91,72 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, onOpenSelfieCa
         </div>
       )}
 
-      <div className="flex items-end gap-2">
-        {/* Tools Menu */}
-        <div className="flex gap-1 pb-2">
-           {/* Hidden File Input */}
-           <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept="image/*" // Limiting to images for this button, could be *
-            onChange={handleFileSelect}
-          />
-          
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-            title="上传图片"
-          >
-            <ImageIcon size={24} />
-          </button>
-          
-          <button 
-            onClick={onOpenSelfieCamera}
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-            title="拍照"
-          >
-            <Camera size={24} />
-          </button>
+      <div className="relative flex items-end gap-2 bg-white/80 backdrop-blur-xl border border-white/50 rounded-[2rem] shadow-lg shadow-indigo-500/5 p-2 transition-all focus-within:shadow-indigo-500/10 focus-within:border-indigo-300/50">
 
-           <button 
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`p-2 rounded-full transition-colors ${isRecording ? 'text-red-600 bg-red-100 animate-pulse' : 'text-gray-500 hover:bg-gray-100'}`}
-            title="语音输入"
+        {/* Left Actions */}
+        <div className="flex items-center gap-1 mb-1 ml-1">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200"
+            title="Upload Image"
           >
-            {isRecording ? <StopCircle size={24} /> : <Mic size={24} />}
+            <ImageIcon size={20} />
           </button>
+          <button
+            onClick={onOpenSelfieCamera}
+            className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all duration-200"
+            title="Take Photo"
+          >
+            <Camera size={20} />
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
         </div>
 
-        {/* Text Input */}
-        <div className="flex-grow bg-gray-100 rounded-2xl p-2 min-h-[44px] flex items-center">
-            <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={isRecording ? "录音中..." : "有问题尽管问..."}
-                className="w-full bg-transparent border-none focus:ring-0 text-gray-800 placeholder-gray-400 resize-none max-h-32 text-base px-2 py-1 no-scrollbar"
-                rows={1}
-                style={{minHeight: '24px'}}
-                disabled={isRecording}
-            />
+        <div className="flex-grow">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              autoResize(e);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="输入消息..."
+            className="w-full bg-transparent border-0 focus:ring-0 resize-none max-h-[120px] py-3 px-2 text-gray-700 placeholder-gray-400 leading-relaxed"
+            rows={1}
+            style={{ height: 'auto' }}
+          />
         </div>
 
         {/* Send Button */}
-        <button 
+        <button
           onClick={handleSend}
-          disabled={isLoading || (text.trim() === '' && attachments.length === 0)}
-          className={`p-3 rounded-full flex-shrink-0 mb-0.5 transition-all ${
-            (text.trim() !== '' || attachments.length > 0) && !isLoading
-              ? 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700' 
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
+          disabled={(!text.trim() && attachments.length === 0) || isLoading}
+          className={`p-3 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center ${(!text.trim() && attachments.length === 0) || isLoading
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-indigo-500/30 hover:scale-105 active:scale-95'
+            }`}
+          title="发送"
         >
-          {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+          <Send size={20} className={isLoading ? 'opacity-0' : ''} />
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </div>
+          )}
         </button>
+      </div>
+
+      <div className="text-center mt-2">
+        <p className="text-xs text-gray-400">
+          AI 可能会犯错。请核实重要信息。
+        </p>
       </div>
     </div>
   );

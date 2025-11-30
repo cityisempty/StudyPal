@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, ReactNode } from 'react';
 import { Message, Role } from '../types';
-import { Bot, User } from 'lucide-react';
+import { Bot, User, Loader2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -8,6 +8,8 @@ import rehypeKatex from 'rehype-katex';
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+  onAskOtherTeacher?: () => void;
+  otherProviderName?: string;
 }
 
 interface ErrorBoundaryProps {
@@ -39,7 +41,7 @@ class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBou
       // Fallback: Display raw text cleanly
       return (
         <div className="text-sm text-gray-800 whitespace-pre-wrap font-mono bg-red-50 p-2 rounded border border-red-100">
-           {this.props.fallback}
+          {this.props.fallback}
         </div>
       );
     }
@@ -47,111 +49,106 @@ class MarkdownErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBou
   }
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, onAskOtherTeacher, otherProviderName }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom whenever messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
-
   return (
-    <div className="flex-grow overflow-y-auto p-4 space-y-6 no-scrollbar">
-      {messages.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 mt-20">
-          <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
-            <Bot size={48} className="text-indigo-500" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">你好！我是你的 AI 学习助手</h2>
-          <p className="max-w-xs text-sm">
-            拍照上传题目、提问或练习概念。我在这里助你学习一臂之力！
-          </p>
-        </div>
-      )}
+    <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar">
+      {messages.map((msg, index) => {
+        const isUser = msg.role === Role.USER;
+        const isLast = index === messages.length - 1;
+        return (
+          <div
+            key={msg.id}
+            className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} animate-slide-up`}
+          >
+            <div className={`flex max-w-[85%] md:max-w-[75%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
 
-      {messages.map((msg) => (
-        <div 
-          key={msg.id} 
-          className={`flex w-full gap-3 ${msg.role === Role.USER ? 'flex-row-reverse' : 'flex-row'}`}
-        >
-          {/* Avatar */}
-          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            msg.role === Role.USER ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'
-          }`}>
-             {msg.role === Role.USER ? <User size={16} /> : <Bot size={16} />}
-          </div>
-
-          {/* Bubble */}
-          <div className={`flex flex-col max-w-[85%] ${msg.role === Role.USER ? 'items-end' : 'items-start'}`}>
-            
-            {/* Attachments */}
-            {msg.attachments && msg.attachments.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2 justify-end">
-                    {msg.attachments.map((att, i) => (
-                        att.type === 'image' && att.previewUrl ? (
-                            <img 
-                                key={i} 
-                                src={att.previewUrl} 
-                                alt="Attachment" 
-                                className="max-w-[200px] max-h-[200px] rounded-lg border border-gray-200 shadow-sm object-cover" 
-                            />
-                        ) : att.type === 'audio' ? (
-                            <div key={i} className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">语音片段</div>
-                        ) : null
-                    ))}
-                </div>
-            )}
-
-            {/* Text Content */}
-            {msg.text && (
-                <div className={`px-4 py-3 rounded-2xl shadow-sm text-sm leading-relaxed overflow-hidden ${
-                msg.role === Role.USER 
-                    ? 'bg-indigo-600 text-white rounded-tr-sm user-bubble' 
-                    : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
+              {/* Avatar */}
+              <div className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shadow-md ${isUser
+                ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
+                : 'bg-white text-indigo-600 border border-indigo-100'
                 }`}>
-                    <div className="markdown-body">
-                      {/* 
-                         CRITICAL FIX: Configure rehypeKatex to NOT throw errors.
-                         This prevents white screen crashes when streaming incomplete LaTeX.
-                      */}
-                      <MarkdownErrorBoundary fallback={msg.text}>
-                        <ReactMarkdown 
-                          remarkPlugins={[remarkMath]} 
-                          rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
-                          components={{
-                              a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />
-                          }}
-                        >
-                          {msg.text}
-                        </ReactMarkdown>
-                      </MarkdownErrorBoundary>
+                {isUser ? <User size={18} className="text-white" /> : <Bot size={20} />}
+              </div>
+
+              {/* Message Bubble */}
+              <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                <div className={`relative px-5 py-3.5 rounded-2xl shadow-sm ${isUser
+                  ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white user-bubble rounded-tr-none'
+                  : 'bg-white/80 backdrop-blur-sm border border-white/50 text-gray-800 rounded-tl-none'
+                  }`}>
+                  {/* Attachments */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {msg.attachments.map((att, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={att.previewUrl}
+                            alt="attachment"
+                            className="h-32 w-auto rounded-lg border-2 border-white/20 shadow-sm object-cover transition-transform group-hover:scale-105"
+                          />
+                        </div>
+                      ))}
                     </div>
+                  )}
+
+                  {/* Text Content */}
+                  <div className="markdown-body">
+                    <MarkdownErrorBoundary fallback={msg.text}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={{
+                          // Custom renderer for code blocks to handle math/latex better if needed
+                          p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
+                          a: ({ node, ...props }) => <a className="text-indigo-600 hover:underline" {...props} />,
+                        }}
+                      >
+                        {msg.text}
+                      </ReactMarkdown>
+                    </MarkdownErrorBoundary>
+                  </div>
+
+                  {/* Timestamp */}
+                  <div className={`text-[10px] mt-1 opacity-70 ${isUser ? 'text-indigo-100' : 'text-gray-400'}`}>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-            )}
-            
-            <span className="text-[10px] text-gray-400 mt-1 px-1">
-              {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-            </span>
+
+                {/* Ask Other Teacher Button */}
+                {!isUser && isLast && !isLoading && onAskOtherTeacher && (
+                  <button
+                    onClick={onAskOtherTeacher}
+                    className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-full transition-colors self-start"
+                  >
+                    <Sparkles size={12} />
+                    听听{otherProviderName}怎么说
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
-      
-      {/* Streaming Indicator / Loading State */}
-      {/* Only show "thinking" bubbles if we are loading AND the last message is NOT from the model (meaning we haven't started streaming yet) */}
-      {isLoading && messages.length > 0 && messages[messages.length - 1].role === Role.USER && (
-        <div className="flex w-full gap-3">
-           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-             <Bot size={16} />
-          </div>
-          <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
-            <div className="flex gap-1.5">
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+        );
+      })}
+
+      {isLoading && (
+        <div className="flex w-full justify-start animate-fade-in">
+          <div className="flex max-w-[75%] gap-3 flex-row">
+            <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shadow-md bg-white text-indigo-600 border border-indigo-100">
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+            <div className="flex items-center">
+              <span className="text-gray-500 text-sm ml-2">思考中...</span>
             </div>
           </div>
         </div>
       )}
+
       <div ref={bottomRef} />
     </div>
   );
